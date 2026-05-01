@@ -64,6 +64,17 @@ html, body {
   margin-right: 4px;
 }
 
+#hud-minimap {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  width: 160px;
+  height: 160px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
 #hud-item {
   position: absolute;
   bottom: 24px;

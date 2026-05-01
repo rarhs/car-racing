@@ -163,6 +163,7 @@ function frame(dt) {
     hud.setSpeed(Math.round(player.speed * 4));
     hud.setItem(player.heldItem);
     hud.setLapTimes(currentLapElapsed, bestLapTime);
+    hud.drawMinimap(track, allKarts, player);
 
     if (state.is('race')) {
       const finished = allKarts.filter(k => k.lap >= config.race.laps);
