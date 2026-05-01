@@ -155,13 +155,10 @@ export class ItemSystem {
   dropBanana(kart) {
     const fwd = kart.forward();
     const pos = kart.position.clone().addScaledVector(fwd, -2.0);
-    pos.y = 0.4;
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 12, 8),
-      new THREE.MeshStandardMaterial({ color: 0xffd84d, roughness: 0.6 })
-    );
+    pos.y = 0.25;
+    const mesh = makeBananaMesh();
     mesh.position.copy(pos);
-    mesh.castShadow = true;
+    mesh.rotation.y = Math.random() * Math.PI * 2;
     this.scene.add(mesh);
     this.hazards.push({
       owner: kart, position: pos, mesh, life: 30, spawnGrace: 0.6,
@@ -190,6 +187,43 @@ export class ItemSystem {
       life: config.items.missile.lifetime,
     });
   }
+}
+
+let bananaTemplate = null;
+function makeBananaMesh() {
+  if (!bananaTemplate) {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.6,  0.0,    0),
+      new THREE.Vector3(-0.32, 0.22,   0),
+      new THREE.Vector3( 0.32, 0.22,   0),
+      new THREE.Vector3( 0.6,  0.0,    0),
+    ]);
+    const bodyGeo = new THREE.TubeGeometry(curve, 24, 0.16, 14, false);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0xffe04d, roughness: 0.45, metalness: 0.05, emissive: 0x332200,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = true;
+
+    const tipMat = new THREE.MeshStandardMaterial({ color: 0x4a2f15, roughness: 0.85 });
+    const tipGeo = new THREE.SphereGeometry(0.16, 10, 8);
+    const tipA = new THREE.Mesh(tipGeo, tipMat);
+    tipA.position.copy(curve.getPoint(0));
+    const tipB = new THREE.Mesh(tipGeo, tipMat);
+    tipB.position.copy(curve.getPoint(1));
+
+    const stemGeo = new THREE.CylinderGeometry(0.04, 0.06, 0.18, 6);
+    const stem = new THREE.Mesh(stemGeo, tipMat);
+    stem.position.set(0, 0.32, 0);
+    stem.rotation.z = 0.15;
+
+    bananaTemplate = new THREE.Group();
+    bananaTemplate.add(body);
+    bananaTemplate.add(tipA);
+    bananaTemplate.add(tipB);
+    bananaTemplate.add(stem);
+  }
+  return bananaTemplate.clone(true);
 }
 
 function pickItemForRank(kart, allKarts) {
