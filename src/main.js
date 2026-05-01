@@ -123,6 +123,7 @@ function frame(dt) {
     hud.setPosition(playerPos, allKarts.length);
     hud.setSpeed(Math.round(player.speed * 4));
     hud.setItem(player.heldItem);
+    hud.drawMinimap(track, allKarts, player);
 
     if (state.is('race')) {
       const finished = allKarts.filter(k => k.lap >= config.race.laps);
