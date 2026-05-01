@@ -168,13 +168,7 @@ export class ItemSystem {
   fireMissile(kart) {
     const ownerIdx = kart.sampleIndex || 0;
     const startWp = (ownerIdx + 6) % this.track.samples.length;
-    const mesh = new THREE.Mesh(
-      new THREE.ConeGeometry(0.4, 1.6, 8),
-      new THREE.MeshStandardMaterial({ color: 0xff3344, emissive: 0x661111 })
-    );
-    mesh.rotation.x = Math.PI / 2;
-    const wrapper = new THREE.Group();
-    wrapper.add(mesh);
+    const wrapper = makeMissileMesh();
     const startPos = kart.position.clone().addScaledVector(kart.forward(), 2);
     startPos.y = 0.7;
     wrapper.position.copy(startPos);
@@ -224,6 +218,66 @@ function makeBananaMesh() {
     bananaTemplate.add(stem);
   }
   return bananaTemplate.clone(true);
+}
+
+let missileTemplate = null;
+function makeMissileMesh() {
+  if (!missileTemplate) {
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x99aabb, metalness: 0.6, roughness: 0.3,
+    });
+    const warheadMat = new THREE.MeshStandardMaterial({
+      color: 0xff2233, metalness: 0.4, roughness: 0.4,
+    });
+    const finMat = new THREE.MeshStandardMaterial({
+      color: 0x778899, metalness: 0.5, roughness: 0.35,
+    });
+    const exhaustMat = new THREE.MeshStandardMaterial({
+      color: 0xff7700, emissive: 0xff4400, emissiveIntensity: 1.2,
+    });
+
+    // Fuselage cylinder aligned along +Z (default cylinder is Y-axis, rotate to Z)
+    const fuselage = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.17, 0.2, 1.4, 10),
+      bodyMat,
+    );
+    fuselage.rotation.x = Math.PI / 2;
+    fuselage.castShadow = true;
+
+    // Warhead cone at front (+Z); ConeGeometry apex is +Y, rotate 90° around X so apex → +Z
+    const warhead = new THREE.Mesh(
+      new THREE.ConeGeometry(0.2, 0.5, 10),
+      warheadMat,
+    );
+    warhead.rotation.x = Math.PI / 2;
+    warhead.position.z = 0.95; // fuselage half (0.7) + cone half (0.25)
+    warhead.castShadow = true;
+
+    // Exhaust glow at rear (-Z)
+    const exhaust = new THREE.Mesh(
+      new THREE.SphereGeometry(0.13, 8, 6),
+      exhaustMat,
+    );
+    exhaust.position.z = -0.75;
+
+    // 4 fins at rear, evenly distributed around body
+    const finGeo = new THREE.BoxGeometry(0.04, 0.38, 0.3);
+    const fins = [];
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2;
+      // Center each fin at body radius + half fin height so it sits flush against the body
+      const r = 0.2 + 0.19;
+      const fin = new THREE.Mesh(finGeo, finMat);
+      fin.position.set(Math.sin(angle) * r, Math.cos(angle) * r, -0.52);
+      fin.rotation.z = angle;
+      fin.castShadow = true;
+      fins.push(fin);
+    }
+
+    missileTemplate = new THREE.Group();
+    missileTemplate.add(fuselage, warhead, exhaust, ...fins);
+  }
+  return missileTemplate.clone(true);
 }
 
 function pickItemForRank(kart, allKarts) {
