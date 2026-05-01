@@ -81,12 +81,36 @@ function setupRace() {
 
   chaseCam = new ChaseCamera(camera, player);
   items.reset();
+
+  raceTime = 0;
+  lapStartTime = 0;
+  prevPlayerLap = -1;
+  bestLapTime = null;
+
+  isPaused = false;
+  hud.hidePause();
 }
 
 const clock = new THREE.Clock();
 let countdownTimer = 0;
+let raceTime = 0;
+let lapStartTime = 0;
+let prevPlayerLap = -1;
+let bestLapTime = null;
+let isPaused = false;
 
 function frame(dt) {
+  if ((state.is('race') || state.is('countdown')) && input.wasPressed('pause')) {
+    isPaused = !isPaused;
+    if (isPaused) hud.showPause(); else hud.hidePause();
+  }
+
+  if (isPaused) {
+    input.endFrame();
+    renderer.render(scene, camera);
+    return;
+  }
+
   if (state.is('countdown')) {
     countdownTimer += dt;
     const remaining = config.race.countdownSeconds - countdownTimer;
@@ -116,6 +140,21 @@ function frame(dt) {
 
     chaseCam.update(dt);
 
+    if (state.is('race')) {
+      raceTime += dt;
+      if (player.lap !== prevPlayerLap) {
+        if (prevPlayerLap >= 0) {
+          const lapTime = raceTime - lapStartTime;
+          if (bestLapTime === null || lapTime < bestLapTime) bestLapTime = lapTime;
+        }
+        lapStartTime = raceTime;
+        prevPlayerLap = player.lap;
+      }
+    }
+    const currentLapElapsed = player.lap >= 0 && state.is('race')
+      ? raceTime - lapStartTime
+      : null;
+
     const allKarts = [player, ...ais.map(x => x.kart)];
     const ranking = [...allKarts].sort((a, b) => b.totalProgress - a.totalProgress);
     const playerPos = ranking.indexOf(player) + 1;
@@ -123,6 +162,7 @@ function frame(dt) {
     hud.setPosition(playerPos, allKarts.length);
     hud.setSpeed(Math.round(player.speed * 4));
     hud.setItem(player.heldItem);
+    hud.setLapTimes(currentLapElapsed, bestLapTime);
     hud.drawMinimap(track, allKarts, player);
 
     if (state.is('race')) {

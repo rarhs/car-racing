@@ -51,5 +51,11 @@ export const config = {
     banana: { spinDuration: 1.0 },
     missile: { speed: 40, lifetime: 5.0, spinDuration: 1.0 },
     shield: { duration: 5.0 },
+    // Weights for [boost, banana, missile, shield] interpolated by race position.
+    // Leader gets defensive items; last place gets comeback offensive items.
+    weights: {
+      leader: [1, 4, 1, 4],
+      last:   [5, 1, 5, 1],
+    },
   },
 };
