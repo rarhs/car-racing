@@ -42,6 +42,22 @@ html, body {
   letter-spacing: 1px;
 }
 
+#hud-laptimes {
+  position: absolute;
+  top: 56px;
+  left: 20px;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  color: #e8e8e8;
+  font-weight: 600;
+}
+
+#hud-laptimes .laptimes-label {
+  color: #aaa;
+  font-weight: 500;
+}
+
 #hud-item {
   position: absolute;
   bottom: 24px;
