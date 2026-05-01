@@ -18,8 +18,12 @@ export class Hud {
     this.loadingEl = document.getElementById('hud-loading');
     this.lapTimeCurrentEl = document.getElementById('laptime-current');
     this.lapTimeBestEl = document.getElementById('laptime-best');
+    this.pauseEl = document.getElementById('hud-pause');
     this.centerTimer = 0;
   }
+
+  showPause() { if (this.pauseEl) this.pauseEl.classList.remove('hidden'); }
+  hidePause() { if (this.pauseEl) this.pauseEl.classList.add('hidden'); }
 
   setLap(cur, total) { this.lapEl.textContent = `LAP ${Math.min(cur, total)}/${total}`; }
 

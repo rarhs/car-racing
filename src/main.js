@@ -86,6 +86,9 @@ function setupRace() {
   lapStartTime = 0;
   prevPlayerLap = -1;
   bestLapTime = null;
+
+  isPaused = false;
+  hud.hidePause();
 }
 
 const clock = new THREE.Clock();
@@ -94,8 +97,20 @@ let raceTime = 0;
 let lapStartTime = 0;
 let prevPlayerLap = -1;
 let bestLapTime = null;
+let isPaused = false;
 
 function frame(dt) {
+  if ((state.is('race') || state.is('countdown')) && input.wasPressed('pause')) {
+    isPaused = !isPaused;
+    if (isPaused) hud.showPause(); else hud.hidePause();
+  }
+
+  if (isPaused) {
+    input.endFrame();
+    renderer.render(scene, camera);
+    return;
+  }
+
   if (state.is('countdown')) {
     countdownTimer += dt;
     const remaining = config.race.countdownSeconds - countdownTimer;
