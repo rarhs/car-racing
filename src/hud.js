@@ -16,10 +16,17 @@ export class Hud {
     this.resultsEl = document.getElementById('hud-results');
     this.resultsListEl = document.getElementById('results-list');
     this.loadingEl = document.getElementById('hud-loading');
+    this.lapTimeCurrentEl = document.getElementById('laptime-current');
+    this.lapTimeBestEl = document.getElementById('laptime-best');
     this.centerTimer = 0;
   }
 
   setLap(cur, total) { this.lapEl.textContent = `LAP ${Math.min(cur, total)}/${total}`; }
+
+  setLapTimes(currentSec, bestSec) {
+    if (this.lapTimeCurrentEl) this.lapTimeCurrentEl.textContent = formatLapTime(currentSec);
+    if (this.lapTimeBestEl) this.lapTimeBestEl.textContent = formatLapTime(bestSec);
+  }
   setPosition(pos, total) {
     const suffix = ['st','nd','rd'][pos - 1] || 'th';
     this.posEl.textContent = `${pos}${suffix} of ${total}`;
@@ -72,4 +79,12 @@ export class Hud {
     this.loadingEl.classList.remove('hidden');
   }
   hideLoading() { this.loadingEl.classList.add('hidden'); }
+}
+
+function formatLapTime(sec) {
+  if (sec == null || !isFinite(sec) || sec <= 0) return '—';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec - m * 60);
+  const hundredths = Math.floor((sec - m * 60 - s) * 100);
+  return `${m}:${String(s).padStart(2, '0')}:${String(hundredths).padStart(2, '0')}`;
 }
