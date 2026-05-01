@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kart Racer</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div id="hud-lap">LAP 1/3</div>
+      <div id="hud-position">1st of 5</div>
+      <div id="hud-item"><span id="item-icon">—</span></div>
+      <div id="hud-speed">0</div>
+      <div id="hud-center"></div>
+      <div id="hud-results" class="hidden">
+        <h1>Results</h1>
+        <ol id="results-list"></ol>
+        <p>Press <kbd>R</kbd> to restart</p>
+      </div>
+      <div id="hud-loading">Loading…</div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,141 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #111;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #fff;
+  user-select: none;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+}
+
+#hud-lap {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  font-size: 28px;
+  letter-spacing: 1px;
+}
+
+#hud-position {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-size: 28px;
+  letter-spacing: 1px;
+}
+
+#hud-item {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  width: 84px;
+  height: 84px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.45);
+  border: 3px solid rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+#hud-item.has-item {
+  border-color: #ffd84d;
+  box-shadow: 0 0 14px rgba(255, 216, 77, 0.7);
+}
+
+#hud-speed {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  font-size: 36px;
+  font-variant-numeric: tabular-nums;
+}
+
+#hud-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 120px;
+  font-weight: 900;
+  color: #ffd84d;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+
+#hud-center.toast {
+  font-size: 48px;
+  color: #fff;
+}
+
+#hud-results {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.8);
+  border: 2px solid #ffd84d;
+  border-radius: 18px;
+  padding: 32px 48px;
+  min-width: 360px;
+  text-align: center;
+}
+
+#hud-results h1 {
+  margin: 0 0 16px;
+  color: #ffd84d;
+  font-size: 42px;
+}
+
+#hud-results ol {
+  text-align: left;
+  font-size: 22px;
+  margin: 0 0 16px;
+  padding-left: 28px;
+}
+
+#hud-results li { padding: 4px 0; }
+
+#hud-results p {
+  margin: 16px 0 0;
+  font-size: 18px;
+  color: #ccc;
+}
+
+#hud-results kbd {
+  background: #333;
+  border: 1px solid #666;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: inherit;
+}
+
+#hud-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  color: #ccc;
+}
+
+.hidden { display: none !important; }
