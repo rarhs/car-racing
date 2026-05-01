@@ -84,6 +84,7 @@ export class Hud {
 function formatLapTime(sec) {
   if (sec == null || !isFinite(sec) || sec <= 0) return '—';
   const m = Math.floor(sec / 60);
-  const rem = sec - m * 60;
-  return `${m}:${rem.toFixed(2).padStart(5, '0')}`;
+  const s = Math.floor(sec - m * 60);
+  const hundredths = Math.floor((sec - m * 60 - s) * 100);
+  return `${m}:${String(s).padStart(2, '0')}:${String(hundredths).padStart(2, '0')}`;
 }
