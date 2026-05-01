@@ -81,12 +81,27 @@ function setupRace() {
 
   chaseCam = new ChaseCamera(camera, player);
   items.reset();
+
+  isPaused = false;
+  hud.hidePause();
 }
 
 const clock = new THREE.Clock();
 let countdownTimer = 0;
+let isPaused = false;
 
 function frame(dt) {
+  if ((state.is('race') || state.is('countdown')) && input.wasPressed('pause')) {
+    isPaused = !isPaused;
+    if (isPaused) hud.showPause(); else hud.hidePause();
+  }
+
+  if (isPaused) {
+    input.endFrame();
+    renderer.render(scene, camera);
+    return;
+  }
+
   if (state.is('countdown')) {
     countdownTimer += dt;
     const remaining = config.race.countdownSeconds - countdownTimer;

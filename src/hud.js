@@ -16,8 +16,12 @@ export class Hud {
     this.resultsEl = document.getElementById('hud-results');
     this.resultsListEl = document.getElementById('results-list');
     this.loadingEl = document.getElementById('hud-loading');
+    this.pauseEl = document.getElementById('hud-pause');
     this.centerTimer = 0;
   }
+
+  showPause() { if (this.pauseEl) this.pauseEl.classList.remove('hidden'); }
+  hidePause() { if (this.pauseEl) this.pauseEl.classList.add('hidden'); }
 
   setLap(cur, total) { this.lapEl.textContent = `LAP ${Math.min(cur, total)}/${total}`; }
   setPosition(pos, total) {
