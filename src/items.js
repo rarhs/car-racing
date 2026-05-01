@@ -59,8 +59,7 @@ export class ItemSystem {
           const dz = kart.position.z - box.position.z;
           if (dx * dx + dz * dz < 2.4 * 2.4) {
             if (!kart.heldItem) {
-              const item = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
-              kart.giveItem(item);
+              kart.giveItem(pickItemForRank(kart, allKarts));
             }
             box.alive = false;
             box.mesh.visible = false;
@@ -191,6 +190,23 @@ export class ItemSystem {
       life: config.items.missile.lifetime,
     });
   }
+}
+
+function pickItemForRank(kart, allKarts) {
+  const ranked = [...allKarts].sort((a, b) => (b.totalProgress || 0) - (a.totalProgress || 0));
+  const pos = ranked.indexOf(kart) + 1;
+  const total = ranked.length;
+  const t = total > 1 ? (pos - 1) / (total - 1) : 0;
+  const leader = config.items.weights.leader;
+  const last = config.items.weights.last;
+  const w = leader.map((lw, i) => lw + (last[i] - lw) * t);
+  const sum = w.reduce((a, b) => a + b, 0);
+  let r = Math.random() * sum;
+  for (let i = 0; i < ITEM_TYPES.length; i++) {
+    r -= w[i];
+    if (r <= 0) return ITEM_TYPES[i];
+  }
+  return ITEM_TYPES[ITEM_TYPES.length - 1];
 }
 
 function tintBox(model, color) {
