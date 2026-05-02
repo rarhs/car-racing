@@ -55,7 +55,16 @@ export interface Track {
   getTangent(idx: number): THREE.Vector3;
 }
 
-export function buildTrack(scene: THREE.Scene, assets: Assets): Track {
+interface TrackGeometry {
+  samples: THREE.Vector3[];
+  tangents: THREE.Vector3[];
+  left: THREE.Vector3[];
+  right: THREE.Vector3[];
+  walls: Wall[];
+  itemBoxSpawns: ItemBoxSpawn[];
+}
+
+function computeTrackGeometry(): TrackGeometry {
   const points = CONTROL_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z));
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.5);
 
@@ -81,48 +90,16 @@ export function buildTrack(scene: THREE.Scene, assets: Assets): Track {
   left.push(left[0].clone());
   right.push(right[0].clone());
 
-  const roadGroup = new THREE.Group();
-  scene.add(roadGroup);
-
-  const roadGeo = buildRibbonGeometry(left, right, ROAD_Y);
-  const roadMat = new THREE.MeshStandardMaterial({
-    color: 0x444444, roughness: 0.95, metalness: 0,
-  });
-  const roadMesh = new THREE.Mesh(roadGeo, roadMat);
-  roadMesh.receiveShadow = true;
-  roadGroup.add(roadMesh);
-
-  const stripeGeo = buildStripeLines(samples, tangents);
-  const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const stripeMesh = new THREE.Mesh(stripeGeo, stripeMat);
-  stripeMesh.position.y = ROAD_Y + 0.01;
-  roadGroup.add(stripeMesh);
-
-  const groundGeo = new THREE.PlaneGeometry(600, 600, 1, 1);
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x4d8a3a, roughness: 1 });
-  const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = 0;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
-  const finishGeo = new THREE.PlaneGeometry(ROAD_HALF_WIDTH * 2, 1.5);
-  const finishCanvas = makeCheckerTexture();
-  const finishMat = new THREE.MeshBasicMaterial({ map: finishCanvas });
-  const finish = new THREE.Mesh(finishGeo, finishMat);
-  finish.rotation.x = -Math.PI / 2;
-  finish.position.copy(samples[0]).setY(ROAD_Y + 0.02);
-  const startTangent = tangents[0];
-  finish.rotation.z = -Math.atan2(startTangent.x, startTangent.z);
-  scene.add(finish);
-
-  const walls = buildWalls(scene, left, right);
-
-  scatterDecorations(scene, samples, tangents, assets);
-
+  const walls = computeWallData(left, right);
   const itemBoxSpawns = computeItemBoxSpawns(samples, tangents);
 
-  const track: Track = {
+  return { samples, tangents, left, right, walls, itemBoxSpawns };
+}
+
+function createTrackFromGeometry(geom: TrackGeometry): Track {
+  const { samples, tangents, walls, itemBoxSpawns } = geom;
+
+  return {
     samples,
     tangents,
     roadHalfWidth: ROAD_HALF_WIDTH,
@@ -205,8 +182,60 @@ export function buildTrack(scene: THREE.Scene, assets: Assets): Track {
       return tangents[i].clone();
     },
   };
+}
+
+export function buildTrackHeadless(): Track {
+  return createTrackFromGeometry(computeTrackGeometry());
+}
+
+export function buildTrack(scene: THREE.Scene, assets: Assets): Track {
+  const geom = computeTrackGeometry();
+  const track = createTrackFromGeometry(geom);
+
+  addTrackVisuals(scene, geom);
+  addWallVisuals(scene, geom.left, geom.right);
+  scatterDecorations(scene, geom.samples, geom.tangents, assets);
 
   return track;
+}
+
+function addTrackVisuals(scene: THREE.Scene, geom: TrackGeometry): void {
+  const { samples, tangents, left, right } = geom;
+
+  const roadGroup = new THREE.Group();
+  scene.add(roadGroup);
+
+  const roadGeo = buildRibbonGeometry(left, right, ROAD_Y);
+  const roadMat = new THREE.MeshStandardMaterial({
+    color: 0x444444, roughness: 0.95, metalness: 0,
+  });
+  const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+  roadMesh.receiveShadow = true;
+  roadGroup.add(roadMesh);
+
+  const stripeGeo = buildStripeLines(samples, tangents);
+  const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const stripeMesh = new THREE.Mesh(stripeGeo, stripeMat);
+  stripeMesh.position.y = ROAD_Y + 0.01;
+  roadGroup.add(stripeMesh);
+
+  const groundGeo = new THREE.PlaneGeometry(600, 600, 1, 1);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x4d8a3a, roughness: 1 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const finishGeo = new THREE.PlaneGeometry(ROAD_HALF_WIDTH * 2, 1.5);
+  const finishCanvas = makeCheckerTexture();
+  const finishMat = new THREE.MeshBasicMaterial({ map: finishCanvas });
+  const finish = new THREE.Mesh(finishGeo, finishMat);
+  finish.rotation.x = -Math.PI / 2;
+  finish.position.copy(samples[0]).setY(ROAD_Y + 0.02);
+  const startTangent = tangents[0];
+  finish.rotation.z = -Math.atan2(startTangent.x, startTangent.z);
+  scene.add(finish);
 }
 
 function buildRibbonGeometry(left: THREE.Vector3[], right: THREE.Vector3[], y: number): THREE.BufferGeometry {
@@ -281,20 +310,43 @@ function makeCheckerTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-function buildWalls(scene: THREE.Scene, left: THREE.Vector3[], right: THREE.Vector3[]): Wall[] {
+function computeWallData(left: THREE.Vector3[], right: THREE.Vector3[]): Wall[] {
   const walls: Wall[] = [];
+  const wallStep = 4;
+  for (let i = 0; i < left.length - 1; i += wallStep) {
+    const la = left[i], lb = left[(i + wallStep) % (left.length - 1)];
+    const ra = right[i], rb = right[(i + wallStep) % (right.length - 1)];
+    pushWall(walls, la, lb);
+    pushWall(walls, ra, rb);
+  }
+  return walls;
+}
+
+function pushWall(walls: Wall[], a: THREE.Vector3, b: THREE.Vector3): void {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  if (len < 0.01) return;
+  const angle = Math.atan2(dx, dz);
+  walls.push({
+    a: a.clone(),
+    b: b.clone(),
+    normal: new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle)),
+  });
+}
+
+function addWallVisuals(scene: THREE.Scene, left: THREE.Vector3[], right: THREE.Vector3[]): void {
   const wallGroup = new THREE.Group();
   scene.add(wallGroup);
 
   const wallStep = 4;
   for (let i = 0; i < left.length - 1; i += wallStep) {
-    addWallSegment(wallGroup, walls, left[i], left[(i + wallStep) % (left.length - 1)], 0xff5555);
-    addWallSegment(wallGroup, walls, right[i], right[(i + wallStep) % (right.length - 1)], 0xeeeeee);
+    addWallSegmentMesh(wallGroup, left[i], left[(i + wallStep) % (left.length - 1)], 0xff5555);
+    addWallSegmentMesh(wallGroup, right[i], right[(i + wallStep) % (right.length - 1)], 0xeeeeee);
   }
-  return walls;
 }
 
-function addWallSegment(group: THREE.Group, walls: Wall[], a: THREE.Vector3, b: THREE.Vector3, color: number): void {
+function addWallSegmentMesh(group: THREE.Group, a: THREE.Vector3, b: THREE.Vector3, color: number): void {
   const dx = b.x - a.x;
   const dz = b.z - a.z;
   const len = Math.sqrt(dx * dx + dz * dz);
@@ -311,12 +363,6 @@ function addWallSegment(group: THREE.Group, walls: Wall[], a: THREE.Vector3, b: 
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   group.add(mesh);
-
-  walls.push({
-    a: a.clone(),
-    b: b.clone(),
-    normal: new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle)),
-  });
 }
 
 function scatterDecorations(scene: THREE.Scene, samples: THREE.Vector3[], tangents: THREE.Vector3[], assets: Assets): void {

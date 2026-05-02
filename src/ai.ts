@@ -116,7 +116,7 @@ export class AIController {
   }
 }
 
-function wrapAngle(a: number): number {
+export function wrapAngle(a: number): number {
   while (a > Math.PI) a -= Math.PI * 2;
   while (a < -Math.PI) a += Math.PI * 2;
   return a;

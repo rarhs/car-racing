@@ -306,7 +306,7 @@ function makeMissileMesh(): THREE.Group {
   return missileTemplate.clone(true);
 }
 
-function pickItemForRank(kart: Kart, allKarts: Kart[]): ItemName {
+export function pickItemForRank(kart: Kart, allKarts: Kart[]): ItemName {
   const ranked = [...allKarts].sort((a, b) => (b.totalProgress || 0) - (a.totalProgress || 0));
   const pos = ranked.indexOf(kart) + 1;
   const total = ranked.length;
