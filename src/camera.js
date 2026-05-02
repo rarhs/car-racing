@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { config } from './config.js';
 
 export class ChaseCamera {

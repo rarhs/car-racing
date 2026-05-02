@@ -51,7 +51,7 @@ export class Kart {
 
   dispose(scene) { scene.remove(this.root); }
 
-  idle(dt) {
+  idle(_dt) {
     this.syncTransform();
   }
 
@@ -233,7 +233,7 @@ function tintModel(model, color) {
   model.traverse((node) => {
     if (node.isMesh && node.material) {
       const mats = Array.isArray(node.material) ? node.material : [node.material];
-      mats.forEach((m, i) => {
+      mats.forEach((m) => {
         if (m.color && m.name && m.name.toLowerCase().includes('body')) {
           m.color = c.clone();
         }

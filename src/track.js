@@ -196,46 +196,11 @@ function buildRibbonGeometry(left, right, y) {
 }
 
 function buildStripeLines(samples, tangents) {
-  const verts = [];
-  const indices = [];
   const dashLen = 6;
   const gapLen = 4;
-  let i = 0;
-  let drawing = true;
-  let stepsLeft = dashLen;
-  let vCount = 0;
-
-  while (i < samples.length - 1) {
-    if (drawing) {
-      const t = tangents[i];
-      const n = new THREE.Vector3(-t.z, 0, t.x).multiplyScalar(0.15);
-      const a = samples[i].clone().add(n);
-      const b = samples[i].clone().sub(n);
-      verts.push(a.x, 0, a.z);
-      verts.push(b.x, 0, b.z);
-
-      if (vCount > 0) {
-        const va = vCount - 2, vb = vCount - 1, vc = vCount, vd = vCount + 1;
-        indices.push(va, vb, vc, vb, vd, vc);
-      }
-      vCount += 2;
-    }
-    stepsLeft--;
-    if (stepsLeft <= 0) {
-      drawing = !drawing;
-      stepsLeft = drawing ? dashLen : gapLen;
-      vCount = drawing ? 0 : vCount;
-      if (drawing) {
-        verts.length = verts.length;
-      }
-    }
-    i++;
-  }
-
-  const verts2 = [];
-  const idx2 = [];
+  const verts = [];
+  const indices = [];
   let writing = false;
-  let dashTimer = 0;
   let lastVA = -1, lastVB = -1;
 
   for (let s = 0; s < samples.length - 1; s++) {
@@ -246,19 +211,18 @@ function buildStripeLines(samples, tangents) {
     const n = new THREE.Vector3(-t.z, 0, t.x).multiplyScalar(0.18);
     const a = samples[s].clone().add(n);
     const b = samples[s].clone().sub(n);
-    const vA = verts2.length / 3;
-    verts2.push(a.x, 0, a.z, b.x, 0, b.z);
+    const vA = verts.length / 3;
+    verts.push(a.x, 0, a.z, b.x, 0, b.z);
     if (writing) {
-      const va = lastVA, vb = lastVB, vc = vA, vd = vA + 1;
-      idx2.push(va, vb, vc, vb, vd, vc);
+      indices.push(lastVA, lastVB, vA, lastVB, vA + 1, vA);
     }
     lastVA = vA; lastVB = vA + 1;
     writing = true;
   }
 
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts2, 3));
-  geo.setIndex(idx2);
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
 }
@@ -281,7 +245,7 @@ function makeCheckerTexture() {
   return tex;
 }
 
-function buildWalls(scene, left, right, samples, assets) {
+function buildWalls(scene, left, right, _samples, _assets) {
   const walls = [];
   const wallGroup = new THREE.Group();
   scene.add(wallGroup);

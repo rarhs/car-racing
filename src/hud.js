@@ -137,7 +137,7 @@ export class Hud {
 
   showResults(ranking) {
     this.resultsListEl.innerHTML = '';
-    ranking.forEach((kart, i) => {
+    ranking.forEach((kart) => {
       const li = document.createElement('li');
       li.textContent = `${kart.isPlayer ? 'You' : `CPU ${kart.aiIndex ?? ''}`}`;
       this.resultsListEl.appendChild(li);
