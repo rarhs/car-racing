@@ -1,21 +1,29 @@
+import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const loader = new GLTFLoader();
 
-function loadGLB(url) {
+function loadGLB(url: string): Promise<THREE.Group> {
   return new Promise((resolve, reject) => {
     loader.load(url, (gltf) => resolve(gltf.scene), undefined, reject);
   });
 }
 
-function setupModel(model, { receiveShadow = false, castShadow = true } = {}) {
+interface SetupOpts {
+  receiveShadow?: boolean;
+  castShadow?: boolean;
+}
+
+function setupModel(model: THREE.Group, { receiveShadow = false, castShadow = true }: SetupOpts = {}): THREE.Group {
   model.traverse((c) => {
-    if (c.isMesh) {
-      c.castShadow = castShadow;
-      c.receiveShadow = receiveShadow;
-      if (c.material) {
-        c.material.metalness = 0.1;
-        c.material.roughness = 0.7;
+    if ((c as THREE.Mesh).isMesh) {
+      const mesh = c as THREE.Mesh;
+      mesh.castShadow = castShadow;
+      mesh.receiveShadow = receiveShadow;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const m of mats) {
+        if (m && 'metalness' in m) (m as THREE.MeshStandardMaterial).metalness = 0.1;
+        if (m && 'roughness' in m) (m as THREE.MeshStandardMaterial).roughness = 0.7;
       }
     }
   });
@@ -30,7 +38,7 @@ const KART_FILES = {
     '/models/cars/kart-oopi.glb',
     '/models/cars/kart-oozi.glb',
   ],
-};
+} as const;
 
 const PROP_FILES = {
   itemBox: '/models/cars/box.glb',
@@ -41,32 +49,37 @@ const PROP_FILES = {
   billboard: '/models/racing/billboard.glb',
   tree: '/models/racing/treeLarge.glb',
   treeSmall: '/models/racing/treeSmall.glb',
-};
+} as const;
 
-export async function loadAssets(onProgress) {
-  const tasks = [];
+export type PropName = keyof typeof PROP_FILES;
+
+export interface Assets {
+  karts: { player: THREE.Group; ai: THREE.Group[] };
+  props: Record<PropName, THREE.Group>;
+}
+
+export async function loadAssets(onProgress?: (p: number) => void): Promise<Assets> {
   const total = 1 + KART_FILES.ai.length + Object.keys(PROP_FILES).length;
   let done = 0;
   const tick = () => { done++; if (onProgress) onProgress(done / total); };
 
   const playerKartP = loadGLB(KART_FILES.player).then(m => { tick(); return setupModel(m); });
-  tasks.push(playerKartP);
-
   const aiKartPs = KART_FILES.ai.map(url =>
     loadGLB(url).then(m => { tick(); return setupModel(m); })
   );
-  tasks.push(...aiKartPs);
 
-  const propEntries = Object.entries(PROP_FILES);
+  const propEntries = Object.entries(PROP_FILES) as [PropName, string][];
   const propPs = propEntries.map(([key, url]) =>
-    loadGLB(url).then(m => { tick(); return [key, setupModel(m)]; })
+    loadGLB(url).then(m => { tick(); return [key, setupModel(m)] as const; })
   );
-  tasks.push(...propPs);
 
-  const [playerKart, ...rest] = await Promise.all([playerKartP, ...aiKartPs, ...propPs]);
-  const aiKarts = rest.slice(0, KART_FILES.ai.length);
-  const propResults = rest.slice(KART_FILES.ai.length);
-  const props = Object.fromEntries(propResults);
+  const [playerKart, aiKarts, propResults] = await Promise.all([
+    playerKartP,
+    Promise.all(aiKartPs),
+    Promise.all(propPs),
+  ]);
+
+  const props = Object.fromEntries(propResults) as Record<PropName, THREE.Group>;
 
   return {
     karts: { player: playerKart, ai: aiKarts },

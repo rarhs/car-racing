@@ -1,34 +1,67 @@
-const itemEmoji = {
+import type { Track } from './track.js';
+import type { Kart, ItemName } from './kart.js';
+
+const itemEmoji: Record<ItemName, string> = {
   boost: '⚡',
   banana: '🍌',
   missile: '🚀',
   shield: '🛡️',
 };
 
+function requireEl<T extends HTMLElement>(id: string): T {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Missing required HUD element #${id}`);
+  return el as T;
+}
+
+interface MinimapBounds {
+  minX: number;
+  minZ: number;
+  scale: number;
+  cx: number;
+  cz: number;
+}
+
 export class Hud {
+  lapEl: HTMLElement;
+  posEl: HTMLElement;
+  itemEl: HTMLElement;
+  itemIconEl: HTMLElement;
+  speedEl: HTMLElement;
+  centerEl: HTMLElement;
+  resultsEl: HTMLElement;
+  resultsListEl: HTMLElement;
+  loadingEl: HTMLElement;
+  lapTimeCurrentEl: HTMLElement;
+  lapTimeBestEl: HTMLElement;
+  pauseEl: HTMLElement;
+  minimapCanvas: HTMLCanvasElement;
+  minimapCtx: CanvasRenderingContext2D | null;
+  minimapBounds: MinimapBounds | null = null;
+  centerTimer = 0;
+  private _centerHide: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
-    this.lapEl = document.getElementById('hud-lap');
-    this.posEl = document.getElementById('hud-position');
-    this.itemEl = document.getElementById('hud-item');
-    this.itemIconEl = document.getElementById('item-icon');
-    this.speedEl = document.getElementById('hud-speed');
-    this.centerEl = document.getElementById('hud-center');
-    this.resultsEl = document.getElementById('hud-results');
-    this.resultsListEl = document.getElementById('results-list');
-    this.loadingEl = document.getElementById('hud-loading');
-    this.lapTimeCurrentEl = document.getElementById('laptime-current');
-    this.lapTimeBestEl = document.getElementById('laptime-best');
-    this.pauseEl = document.getElementById('hud-pause');
-    this.minimapCanvas = document.getElementById('hud-minimap');
-    this.minimapCtx = this.minimapCanvas?.getContext('2d') || null;
-    this.minimapBounds = null;
-    this.centerTimer = 0;
+    this.lapEl = requireEl('hud-lap');
+    this.posEl = requireEl('hud-position');
+    this.itemEl = requireEl('hud-item');
+    this.itemIconEl = requireEl('item-icon');
+    this.speedEl = requireEl('hud-speed');
+    this.centerEl = requireEl('hud-center');
+    this.resultsEl = requireEl('hud-results');
+    this.resultsListEl = requireEl('results-list');
+    this.loadingEl = requireEl('hud-loading');
+    this.lapTimeCurrentEl = requireEl('laptime-current');
+    this.lapTimeBestEl = requireEl('laptime-best');
+    this.pauseEl = requireEl('hud-pause');
+    this.minimapCanvas = requireEl<HTMLCanvasElement>('hud-minimap');
+    this.minimapCtx = this.minimapCanvas.getContext('2d');
   }
 
-  showPause() { if (this.pauseEl) this.pauseEl.classList.remove('hidden'); }
-  hidePause() { if (this.pauseEl) this.pauseEl.classList.add('hidden'); }
+  showPause(): void { this.pauseEl.classList.remove('hidden'); }
+  hidePause(): void { this.pauseEl.classList.add('hidden'); }
 
-  drawMinimap(track, karts, player) {
+  drawMinimap(track: Track, karts: Kart[], player: Kart | null): void {
     const ctx = this.minimapCtx;
     if (!ctx) return;
     const W = this.minimapCanvas.width;
@@ -52,7 +85,7 @@ export class Hud {
       this.minimapBounds = { minX, minZ, scale, cx, cz };
     }
     const { minX, minZ, scale, cx, cz } = this.minimapBounds;
-    const project = (p) => ({ x: cx + (p.x - minX) * scale, y: cz + (p.z - minZ) * scale });
+    const project = (p: { x: number; z: number }) => ({ x: cx + (p.x - minX) * scale, y: cz + (p.z - minZ) * scale });
 
     ctx.clearRect(0, 0, W, H);
 
@@ -94,48 +127,48 @@ export class Hud {
     }
   }
 
-  setLap(cur, total) { this.lapEl.textContent = `LAP ${Math.min(cur, total)}/${total}`; }
+  setLap(cur: number, total: number): void { this.lapEl.textContent = `LAP ${Math.min(cur, total)}/${total}`; }
 
-  setLapTimes(currentSec, bestSec) {
-    if (this.lapTimeCurrentEl) this.lapTimeCurrentEl.textContent = formatLapTime(currentSec);
-    if (this.lapTimeBestEl) this.lapTimeBestEl.textContent = formatLapTime(bestSec);
+  setLapTimes(currentSec: number | null, bestSec: number | null): void {
+    this.lapTimeCurrentEl.textContent = formatLapTime(currentSec);
+    this.lapTimeBestEl.textContent = formatLapTime(bestSec);
   }
-  setPosition(pos, total) {
+  setPosition(pos: number, total: number): void {
     const suffix = ['st','nd','rd'][pos - 1] || 'th';
     this.posEl.textContent = `${pos}${suffix} of ${total}`;
   }
-  setSpeed(s) { this.speedEl.textContent = String(s); }
+  setSpeed(s: number): void { this.speedEl.textContent = String(s); }
 
-  setItem(item) {
+  setItem(item: ItemName | null): void {
     if (item) {
       this.itemEl.classList.add('has-item');
-      this.itemIconEl.textContent = itemEmoji[item] || '?';
+      this.itemIconEl.textContent = itemEmoji[item] ?? '?';
     } else {
       this.itemEl.classList.remove('has-item');
       this.itemIconEl.textContent = '—';
     }
   }
 
-  showCenter(text, holdSeconds = 0) {
+  showCenter(text: string, holdSeconds = 0): void {
     this.centerEl.textContent = text;
     this.centerEl.classList.remove('toast');
     if (holdSeconds > 0) {
-      clearTimeout(this._centerHide);
+      if (this._centerHide) clearTimeout(this._centerHide);
       this._centerHide = setTimeout(() => { this.centerEl.textContent = ''; }, holdSeconds * 1000);
     }
   }
 
-  toast(text, durationSec = 1.2) {
+  toast(text: string, durationSec = 1.2): void {
     this.centerEl.textContent = text;
     this.centerEl.classList.add('toast');
-    clearTimeout(this._centerHide);
+    if (this._centerHide) clearTimeout(this._centerHide);
     this._centerHide = setTimeout(() => {
       this.centerEl.textContent = '';
       this.centerEl.classList.remove('toast');
     }, durationSec * 1000);
   }
 
-  showResults(ranking) {
+  showResults(ranking: Kart[]): void {
     this.resultsListEl.innerHTML = '';
     ranking.forEach((kart) => {
       const li = document.createElement('li');
@@ -145,16 +178,16 @@ export class Hud {
     this.resultsEl.classList.remove('hidden');
   }
 
-  hideResults() { this.resultsEl.classList.add('hidden'); }
+  hideResults(): void { this.resultsEl.classList.add('hidden'); }
 
-  showLoading(msg) {
+  showLoading(msg: string): void {
     this.loadingEl.textContent = msg;
     this.loadingEl.classList.remove('hidden');
   }
-  hideLoading() { this.loadingEl.classList.add('hidden'); }
+  hideLoading(): void { this.loadingEl.classList.add('hidden'); }
 }
 
-function formatLapTime(sec) {
+function formatLapTime(sec: number | null): string {
   if (sec == null || !isFinite(sec) || sec <= 0) return '—';
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec - m * 60);

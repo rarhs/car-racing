@@ -1,7 +1,28 @@
 import { config } from './config.js';
+import type { Track } from './track.js';
+import type { Kart } from './kart.js';
+import type { Action, KartInput } from './input.js';
+import type { ItemSystem } from './items.js';
+
+class AIInput implements KartInput {
+  _down = new Set<Action>();
+  _press = new Set<Action>();
+  isDown(a: Action): boolean { return this._down.has(a); }
+  wasPressed(a: Action): boolean { return this._press.has(a); }
+}
 
 export class AIController {
-  constructor(kart, track, index) {
+  kart: Kart;
+  track: Track;
+  index: number;
+  speedBias: number;
+  lineOffset: number;
+  targetIndex = 4;
+  itemUseTimer = 0;
+  stuckTimer = 0;
+  input: AIInput;
+
+  constructor(kart: Kart, track: Track, index: number) {
     this.kart = kart;
     this.track = track;
     this.index = index;
@@ -12,26 +33,17 @@ export class AIController {
     this.speedBias = lo + r() * (hi - lo);
     this.lineOffset = (r() * 2 - 1) * config.ai.lineOffsetRange;
 
-    this.targetIndex = 4;
-    this.itemUseTimer = 0;
-    this.stuckTimer = 0;
-
-    this.input = {
-      _down: new Set(),
-      _press: new Set(),
-      isDown(a) { return this._down.has(a); },
-      wasPressed(a) { return this._press.has(a); },
-    };
+    this.input = new AIInput();
   }
 
-  set(action, on) {
+  set(action: Action, on: boolean): void {
     if (on) this.input._down.add(action);
     else this.input._down.delete(action);
   }
 
-  press(action) { this.input._press.add(action); }
+  press(action: Action): void { this.input._press.add(action); }
 
-  update(dt, items, allKarts) {
+  update(dt: number, _items: ItemSystem, allKarts: Kart[]): void {
     this.input._press.clear();
 
     const k = this.kart;
@@ -56,7 +68,7 @@ export class AIController {
     const dz = targetZ - k.position.z;
     const desiredHeading = Math.atan2(dx, dz);
 
-    let delta = wrapAngle(desiredHeading - k.heading);
+    const delta = wrapAngle(desiredHeading - k.heading);
     const absDelta = Math.abs(delta);
 
     this.set('left', delta > 0.05);
@@ -104,13 +116,13 @@ export class AIController {
   }
 }
 
-function wrapAngle(a) {
+function wrapAngle(a: number): number {
   while (a > Math.PI) a -= Math.PI * 2;
   while (a < -Math.PI) a += Math.PI * 2;
   return a;
 }
 
-function mulberry32(a) {
+function mulberry32(a: number): () => number {
   return function () {
     a |= 0; a = a + 0x6D2B79F5 | 0;
     let t = a;

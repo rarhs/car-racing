@@ -37,11 +37,11 @@ export const config = {
   },
 
   ai: {
-    speedJitter: [0.95, 1.0],
+    speedJitter: [0.95, 1.0] as [number, number],
     lineOffsetRange: 1.5,
     rubberbandBehind: 0.05,
     rubberbandAhead: -0.03,
-    itemDelayRange: [1, 3],
+    itemDelayRange: [1, 3] as [number, number],
     waypointReachDistance: 4,
   },
 
@@ -51,11 +51,9 @@ export const config = {
     banana: { spinDuration: 1.0 },
     missile: { speed: 40, lifetime: 5.0, spinDuration: 1.0 },
     shield: { duration: 5.0 },
-    // Weights for [boost, banana, missile, shield] interpolated by race position.
-    // Leader gets defensive items; last place gets comeback offensive items.
     weights: {
-      leader: [1, 4, 1, 4],
-      last:   [5, 1, 5, 1],
+      leader: [1, 4, 1, 4] as [number, number, number, number],
+      last:   [5, 1, 5, 1] as [number, number, number, number],
     },
   },
-};
+} as const;

@@ -1,7 +1,15 @@
-const keys = new Set();
-const justPressed = new Set();
+export type Action =
+  | 'accel' | 'brake' | 'left' | 'right' | 'drift' | 'item' | 'restart' | 'pause';
 
-const keyMap = {
+export interface KartInput {
+  isDown(action: Action): boolean;
+  wasPressed(action: Action): boolean;
+}
+
+const keys = new Set<Action>();
+const justPressed = new Set<Action>();
+
+const keyMap: Record<string, Action> = {
   KeyW: 'accel', ArrowUp: 'accel',
   KeyS: 'brake', ArrowDown: 'brake',
   KeyA: 'left',  ArrowLeft: 'left',
@@ -26,11 +34,8 @@ window.addEventListener('keyup', (e) => {
   keys.delete(action);
 });
 
-export const input = {
+export const input: KartInput & { endFrame(): void } = {
   isDown(action) { return keys.has(action); },
-  wasPressed(action) {
-    const v = justPressed.has(action);
-    return v;
-  },
+  wasPressed(action) { return justPressed.has(action); },
   endFrame() { justPressed.clear(); },
 };

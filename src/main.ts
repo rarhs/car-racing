@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { input } from './input.js';
-import { loadAssets } from './assets.js';
-import { buildTrack } from './track.js';
+import { loadAssets, type Assets } from './assets.js';
+import { buildTrack, type Track } from './track.js';
 import { Kart } from './kart.js';
 import { ChaseCamera } from './camera.js';
 import { ItemSystem } from './items.js';
@@ -10,7 +10,29 @@ import { Hud } from './hud.js';
 import { GameState } from './state.js';
 import { config } from './config.js';
 
-const canvas = document.getElementById('game');
+interface AISlot {
+  kart: Kart;
+  controller: AIController;
+}
+
+interface GameDebug {
+  readonly player: Kart | null;
+  readonly ais: AISlot[];
+  readonly state: string;
+  readonly items: ItemSystem | null;
+  readonly track: Track | null;
+  readonly countdownTimer: number;
+  tick(dt?: number, steps?: number): void;
+  setCountdownDone(): void;
+  pause(): void;
+  resume(): void;
+}
+
+declare global {
+  interface Window { __game: GameDebug }
+}
+
+const canvas = document.getElementById('game') as HTMLCanvasElement;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -36,9 +58,14 @@ window.addEventListener('resize', () => {
 const hud = new Hud();
 const state = new GameState();
 
-let assets, track, items, player, ais = [], chaseCam;
+let assets: Assets;
+let track: Track;
+let items: ItemSystem;
+let player: Kart;
+let ais: AISlot[] = [];
+let chaseCam: ChaseCamera;
 
-async function boot() {
+async function boot(): Promise<void> {
   state.set('loading');
   hud.showLoading('Loading assets…');
   assets = await loadAssets((p) => hud.showLoading(`Loading… ${Math.round(p * 100)}%`));
@@ -48,10 +75,10 @@ async function boot() {
   items = new ItemSystem(scene, assets, track);
 
   setupRace();
-  state.set('countdown', { seconds: config.race.countdownSeconds });
+  state.set('countdown');
 }
 
-function setupRace() {
+function setupRace(): void {
   if (player) player.dispose(scene);
   for (const a of ais) a.kart.dispose(scene);
   ais = [];
@@ -96,10 +123,10 @@ let countdownTimer = 0;
 let raceTime = 0;
 let lapStartTime = 0;
 let prevPlayerLap = -1;
-let bestLapTime = null;
+let bestLapTime: number | null = null;
 let isPaused = false;
 
-function frame(dt) {
+function frame(dt: number): void {
   if ((state.is('race') || state.is('countdown')) && input.wasPressed('pause')) {
     isPaused = !isPaused;
     if (isPaused) hud.showPause(); else hud.hidePause();
@@ -186,7 +213,7 @@ function frame(dt) {
 }
 
 let animatePaused = false;
-function animate() {
+function animate(): void {
   requestAnimationFrame(animate);
   if (animatePaused) { clock.getDelta(); return; }
   const dt = Math.min(clock.getDelta(), 1 / 30);

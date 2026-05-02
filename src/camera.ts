@@ -1,7 +1,15 @@
+import * as THREE from 'three';
 import { config } from './config.js';
+import type { Kart } from './kart.js';
 
 export class ChaseCamera {
-  constructor(camera, target) {
+  camera: THREE.PerspectiveCamera;
+  target: Kart;
+  smoothPos: THREE.Vector3;
+  smoothLook: THREE.Vector3;
+  fov: number;
+
+  constructor(camera: THREE.PerspectiveCamera, target: Kart) {
     this.camera = camera;
     this.target = target;
     this.smoothPos = camera.position.clone();
@@ -9,7 +17,7 @@ export class ChaseCamera {
     this.fov = config.camera.fovBase;
   }
 
-  update(dt) {
+  update(dt: number): void {
     const c = config.camera;
     const fwd = this.target.forward();
     const desired = this.target.position.clone()

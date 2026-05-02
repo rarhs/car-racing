@@ -1,22 +1,53 @@
 import * as THREE from 'three';
 import { config } from './config.js';
+import type { Track } from './track.js';
+import type { Assets } from './assets.js';
+import type { Kart, ItemName } from './kart.js';
+import type { Hud } from './hud.js';
 
-const ITEM_TYPES = ['boost', 'banana', 'missile', 'shield'];
+const ITEM_TYPES: ItemName[] = ['boost', 'banana', 'missile', 'shield'];
+
+interface ItemBox {
+  position: THREE.Vector3;
+  mesh: THREE.Object3D;
+  alive: boolean;
+  respawnIn: number;
+}
+
+interface Hazard {
+  owner: Kart;
+  position: THREE.Vector3;
+  mesh: THREE.Object3D;
+  life: number;
+  spawnGrace: number;
+}
+
+interface Missile {
+  owner: Kart;
+  position: THREE.Vector3;
+  mesh: THREE.Object3D;
+  waypointIndex: number;
+  life: number;
+}
 
 export class ItemSystem {
-  constructor(scene, assets, track) {
+  scene: THREE.Scene;
+  assets: Assets;
+  track: Track;
+  itemBoxes: ItemBox[] = [];
+  hazards: Hazard[] = [];
+  missiles: Missile[] = [];
+  itemBoxTemplate: THREE.Group;
+
+  constructor(scene: THREE.Scene, assets: Assets, track: Track) {
     this.scene = scene;
     this.assets = assets;
     this.track = track;
-    this.itemBoxes = [];
-    this.hazards = [];
-    this.missiles = [];
-
     this.itemBoxTemplate = assets.props.itemBox;
     this.spawnItemBoxes();
   }
 
-  reset() {
+  reset(): void {
     for (const b of this.itemBoxes) {
       b.alive = true;
       b.respawnIn = 0;
@@ -28,7 +59,7 @@ export class ItemSystem {
     this.missiles = [];
   }
 
-  spawnItemBoxes() {
+  spawnItemBoxes(): void {
     for (const spawn of this.track.itemBoxSpawns) {
       const mesh = this.itemBoxTemplate.clone();
       mesh.scale.setScalar(1.2);
@@ -43,7 +74,7 @@ export class ItemSystem {
     }
   }
 
-  update(dt, allKarts, hud) {
+  update(dt: number, allKarts: Kart[], hud: Hud): void {
     for (const box of this.itemBoxes) {
       box.mesh.rotation.y += dt * 1.5;
       box.mesh.position.y = 1.0 + Math.sin(performance.now() * 0.003 + box.position.x) * 0.15;
@@ -138,7 +169,7 @@ export class ItemSystem {
     }
   }
 
-  applyUse(kart) {
+  applyUse(kart: Kart): void {
     const item = kart.consumeItem();
     if (!item) return;
     if (item === 'boost') {
@@ -152,7 +183,7 @@ export class ItemSystem {
     }
   }
 
-  dropBanana(kart) {
+  dropBanana(kart: Kart): void {
     const fwd = kart.forward();
     const pos = kart.position.clone().addScaledVector(fwd, -2.0);
     pos.y = 0.25;
@@ -165,7 +196,7 @@ export class ItemSystem {
     });
   }
 
-  fireMissile(kart) {
+  fireMissile(kart: Kart): void {
     const ownerIdx = kart.sampleIndex || 0;
     const startWp = (ownerIdx + 6) % this.track.samples.length;
     const wrapper = makeMissileMesh();
@@ -183,8 +214,8 @@ export class ItemSystem {
   }
 }
 
-let bananaTemplate = null;
-function makeBananaMesh() {
+let bananaTemplate: THREE.Group | null = null;
+function makeBananaMesh(): THREE.Group {
   if (!bananaTemplate) {
     const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-0.6,  0.0,    0),
@@ -220,8 +251,8 @@ function makeBananaMesh() {
   return bananaTemplate.clone(true);
 }
 
-let missileTemplate = null;
-function makeMissileMesh() {
+let missileTemplate: THREE.Group | null = null;
+function makeMissileMesh(): THREE.Group {
   if (!missileTemplate) {
     const bodyMat = new THREE.MeshStandardMaterial({
       color: 0x99aabb, metalness: 0.6, roughness: 0.3,
@@ -236,7 +267,6 @@ function makeMissileMesh() {
       color: 0xff7700, emissive: 0xff4400, emissiveIntensity: 1.2,
     });
 
-    // Fuselage cylinder aligned along +Z (default cylinder is Y-axis, rotate to Z)
     const fuselage = new THREE.Mesh(
       new THREE.CylinderGeometry(0.17, 0.2, 1.4, 10),
       bodyMat,
@@ -244,28 +274,24 @@ function makeMissileMesh() {
     fuselage.rotation.x = Math.PI / 2;
     fuselage.castShadow = true;
 
-    // Warhead cone at front (+Z); ConeGeometry apex is +Y, rotate 90° around X so apex → +Z
     const warhead = new THREE.Mesh(
       new THREE.ConeGeometry(0.2, 0.5, 10),
       warheadMat,
     );
     warhead.rotation.x = Math.PI / 2;
-    warhead.position.z = 0.95; // fuselage half (0.7) + cone half (0.25)
+    warhead.position.z = 0.95;
     warhead.castShadow = true;
 
-    // Exhaust glow at rear (-Z)
     const exhaust = new THREE.Mesh(
       new THREE.SphereGeometry(0.13, 8, 6),
       exhaustMat,
     );
     exhaust.position.z = -0.75;
 
-    // 4 fins at rear, evenly distributed around body
     const finGeo = new THREE.BoxGeometry(0.04, 0.38, 0.3);
-    const fins = [];
+    const fins: THREE.Mesh[] = [];
     for (let i = 0; i < 4; i++) {
       const angle = (i / 4) * Math.PI * 2;
-      // Center each fin at body radius + half fin height so it sits flush against the body
       const r = 0.2 + 0.19;
       const fin = new THREE.Mesh(finGeo, finMat);
       fin.position.set(Math.sin(angle) * r, Math.cos(angle) * r, -0.52);
@@ -280,7 +306,7 @@ function makeMissileMesh() {
   return missileTemplate.clone(true);
 }
 
-function pickItemForRank(kart, allKarts) {
+function pickItemForRank(kart: Kart, allKarts: Kart[]): ItemName {
   const ranked = [...allKarts].sort((a, b) => (b.totalProgress || 0) - (a.totalProgress || 0));
   const pos = ranked.indexOf(kart) + 1;
   const total = ranked.length;
@@ -297,16 +323,17 @@ function pickItemForRank(kart, allKarts) {
   return ITEM_TYPES[ITEM_TYPES.length - 1];
 }
 
-function tintBox(model, color) {
+function tintBox(model: THREE.Object3D, color: number): void {
   const c = new THREE.Color(color);
   model.traverse((node) => {
-    if (node.isMesh && node.material) {
-      const m = node.material.clone();
-      m.color = c.clone();
-      m.emissive = new THREE.Color(0x222200);
-      m.metalness = 0.3;
-      m.roughness = 0.4;
-      node.material = m;
-    }
+    const mesh = node as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    const original = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    const m = (original as THREE.MeshStandardMaterial).clone();
+    m.color = c.clone();
+    m.emissive = new THREE.Color(0x222200);
+    m.metalness = 0.3;
+    m.roughness = 0.4;
+    mesh.material = m;
   });
 }

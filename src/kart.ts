@@ -1,38 +1,64 @@
 import * as THREE from 'three';
 import { config } from './config.js';
+import type { KartInput } from './input.js';
+import type { Track } from './track.js';
+
+export type ItemName = 'boost' | 'banana' | 'missile' | 'shield';
+export type HitKind = 'spin';
+
+interface KartOpts {
+  scene: THREE.Scene;
+  model: THREE.Group;
+  position: THREE.Vector3;
+  heading: number;
+  isPlayer: boolean;
+  color: number;
+}
 
 export class Kart {
-  constructor({ scene, model, position, heading, isPlayer, color }) {
+  position: THREE.Vector3;
+  heading: number;
+  speed = 0;
+  isPlayer: boolean;
+  color: number;
+
+  driftActive = false;
+  driftDir = 0;
+  driftCharge = 0;
+  boostTimer = 0;
+  boostMultiplier = 1;
+  spinTimer = 0;
+  shieldTimer = 0;
+
+  heldItem: ItemName | null = null;
+  lap = -1;
+  sampleIndex = 0;
+  lastSampleIndex: number | null = null;
+  totalProgress = 0;
+
+  useItemRequested = false;
+
+  // AI-only fields, attached by AIController
+  aiIndex?: number;
+  aiAccelBonus = 0;
+
+  root: THREE.Group;
+  body: THREE.Group;
+  bodyTilt: THREE.Group;
+  shieldMesh: THREE.Mesh;
+
+  constructor({ scene, model, position, heading, isPlayer, color }: KartOpts) {
     this.position = position.clone();
     this.heading = heading;
-    this.speed = 0;
     this.isPlayer = isPlayer;
     this.color = color;
-
-    this.driftActive = false;
-    this.driftDir = 0;
-    this.driftCharge = 0;
-    this.boostTimer = 0;
-    this.boostMultiplier = 1;
-    this.spinTimer = 0;
-    this.shieldTimer = 0;
-
-    this.heldItem = null;
-    this.lap = -1;
-    this.sampleIndex = 0;
-    this.lastSampleIndex = null;
-    this.totalProgress = 0;
-
-    this.useItemRequested = false;
 
     this.root = new THREE.Group();
     this.body = model;
     this.body.scale.setScalar(1.4);
     tintModel(this.body, color);
-    this.root.add(this.body);
 
     this.bodyTilt = new THREE.Group();
-    this.root.remove(this.body);
     this.bodyTilt.add(this.body);
     this.root.add(this.bodyTilt);
 
@@ -49,21 +75,13 @@ export class Kart {
     this.syncTransform();
   }
 
-  dispose(scene) { scene.remove(this.root); }
+  dispose(scene: THREE.Scene): void { scene.remove(this.root); }
 
-  idle(_dt) {
+  idle(_dt: number): void {
     this.syncTransform();
   }
 
-  applyItemEffects() {
-    return {
-      isBoosting: this.boostTimer > 0,
-      hasShield: this.shieldTimer > 0,
-      isSpinning: this.spinTimer > 0,
-    };
-  }
-
-  hit(kind) {
+  hit(kind: HitKind): boolean {
     if (this.shieldTimer > 0) {
       this.shieldTimer = 0;
       this.shieldMesh.visible = false;
@@ -77,17 +95,17 @@ export class Kart {
     return false;
   }
 
-  giveItem(name) {
+  giveItem(name: ItemName): void {
     if (!this.heldItem) this.heldItem = name;
   }
 
-  consumeItem() {
+  consumeItem(): ItemName | null {
     const item = this.heldItem;
     this.heldItem = null;
     return item;
   }
 
-  update(dt, inputCtl, track) {
+  update(dt: number, inputCtl: KartInput, track: Track): void {
     const c = config.kart;
 
     if (this.spinTimer > 0) {
@@ -101,7 +119,7 @@ export class Kart {
       const leftDown = inputCtl.isDown('left');
       const rightDown = inputCtl.isDown('right');
       const driftDown = inputCtl.isDown('drift');
-      const itemDown = inputCtl.wasPressed && inputCtl.wasPressed('item');
+      const itemDown = inputCtl.wasPressed('item');
 
       const speedRatio = Math.min(1, Math.max(0, this.speed / c.maxSpeed));
       const steerMul = THREE.MathUtils.lerp(c.steerSpeed, c.steerSpeedAtMax, speedRatio);
@@ -170,21 +188,21 @@ export class Kart {
     this.syncTransform();
   }
 
-  activateBoost(multiplier, duration) {
+  activateBoost(multiplier: number, duration: number): void {
     this.boostTimer = Math.max(this.boostTimer, duration);
     this.boostMultiplier = Math.max(this.boostMultiplier, multiplier);
   }
 
-  activateShield(duration) {
+  activateShield(duration: number): void {
     this.shieldTimer = duration;
     this.shieldMesh.visible = true;
   }
 
-  forward() {
+  forward(): THREE.Vector3 {
     return new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
   }
 
-  resolveWallCollisions(track) {
+  resolveWallCollisions(track: Track): void {
     const r = config.kart.radius;
     for (const wall of track.walls) {
       const ax = wall.a.x, az = wall.a.z;
@@ -212,7 +230,7 @@ export class Kart {
     }
   }
 
-  syncTransform() {
+  syncTransform(): void {
     this.root.position.copy(this.position);
     this.root.position.y = 0.15;
     this.root.rotation.y = this.heading;
@@ -228,16 +246,17 @@ export class Kart {
   }
 }
 
-function tintModel(model, color) {
+function tintModel(model: THREE.Object3D, color: number): void {
   const c = new THREE.Color(color);
   model.traverse((node) => {
-    if (node.isMesh && node.material) {
-      const mats = Array.isArray(node.material) ? node.material : [node.material];
-      mats.forEach((m) => {
-        if (m.color && m.name && m.name.toLowerCase().includes('body')) {
-          m.color = c.clone();
-        }
-      });
+    const mesh = node as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of mats) {
+      const mm = m as THREE.MeshStandardMaterial;
+      if (mm.color && mm.name && mm.name.toLowerCase().includes('body')) {
+        mm.color = c.clone();
+      }
     }
   });
 }

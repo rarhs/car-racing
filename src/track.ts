@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { config } from './config.js';
+import type { Assets } from './assets.js';
+import type { Kart } from './kart.js';
 
 const ROAD_HALF_WIDTH = 6;
 const WALL_HEIGHT = 1.4;
 const ROAD_Y = 0.02;
 
-const CONTROL_POINTS = [
+const CONTROL_POINTS: [number, number][] = [
   [0,    0],
   [40,   0],
   [60,   8],
@@ -21,7 +23,39 @@ const CONTROL_POINTS = [
   [-8,   -4],
 ];
 
-export function buildTrack(scene, assets) {
+export interface Wall {
+  a: THREE.Vector3;
+  b: THREE.Vector3;
+  normal: THREE.Vector3;
+}
+
+export interface ItemBoxSpawn {
+  position: THREE.Vector3;
+  offset: number;
+}
+
+export interface StartPosition {
+  position: THREE.Vector3;
+  heading: number;
+}
+
+export interface Track {
+  samples: THREE.Vector3[];
+  tangents: THREE.Vector3[];
+  roadHalfWidth: number;
+  walls: Wall[];
+  finishLineCenter: THREE.Vector3;
+  finishLineNormal: THREE.Vector3;
+  itemBoxSpawns: ItemBoxSpawn[];
+  getStartPositions(count: number): StartPosition[];
+  nearestSampleIndex(pos: THREE.Vector3 | { x: number; z: number }): { index: number; distSq: number };
+  isOffTrack(pos: THREE.Vector3): boolean;
+  updateProgress(kart: Kart): void;
+  getWaypoint(idx: number, offset?: number): THREE.Vector3;
+  getTangent(idx: number): THREE.Vector3;
+}
+
+export function buildTrack(scene: THREE.Scene, assets: Assets): Track {
   const points = CONTROL_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z));
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.5);
 
@@ -29,7 +63,7 @@ export function buildTrack(scene, assets) {
   const allSpaced = curve.getSpacedPoints(segments);
   const samples = allSpaced.slice(0, segments);
 
-  const tangents = [];
+  const tangents: THREE.Vector3[] = [];
   for (let i = 0; i < samples.length; i++) {
     const a = samples[i];
     const b = samples[(i + 1) % samples.length];
@@ -37,7 +71,7 @@ export function buildTrack(scene, assets) {
     tangents.push(t);
   }
 
-  const left = [], right = [];
+  const left: THREE.Vector3[] = [], right: THREE.Vector3[] = [];
   for (let i = 0; i < samples.length; i++) {
     const t = tangents[i];
     const normal = new THREE.Vector3(-t.z, 0, t.x);
@@ -82,13 +116,13 @@ export function buildTrack(scene, assets) {
   finish.rotation.z = -Math.atan2(startTangent.x, startTangent.z);
   scene.add(finish);
 
-  const walls = buildWalls(scene, left, right, samples, assets);
+  const walls = buildWalls(scene, left, right);
 
   scatterDecorations(scene, samples, tangents, assets);
 
   const itemBoxSpawns = computeItemBoxSpawns(samples, tangents);
 
-  return {
+  const track: Track = {
     samples,
     tangents,
     roadHalfWidth: ROAD_HALF_WIDTH,
@@ -98,7 +132,7 @@ export function buildTrack(scene, assets) {
     itemBoxSpawns,
 
     getStartPositions(count) {
-      const positions = [];
+      const positions: StartPosition[] = [];
       const startIdx = 0;
       const back = tangents[startIdx].clone().multiplyScalar(-1);
       const right = new THREE.Vector3(-tangents[startIdx].z, 0, tangents[startIdx].x).multiplyScalar(-1);
@@ -171,12 +205,14 @@ export function buildTrack(scene, assets) {
       return tangents[i].clone();
     },
   };
+
+  return track;
 }
 
-function buildRibbonGeometry(left, right, y) {
-  const verts = [];
-  const indices = [];
-  const uvs = [];
+function buildRibbonGeometry(left: THREE.Vector3[], right: THREE.Vector3[], y: number): THREE.BufferGeometry {
+  const verts: number[] = [];
+  const indices: number[] = [];
+  const uvs: number[] = [];
   for (let i = 0; i < left.length; i++) {
     verts.push(left[i].x, y, left[i].z);
     verts.push(right[i].x, y, right[i].z);
@@ -195,11 +231,11 @@ function buildRibbonGeometry(left, right, y) {
   return geo;
 }
 
-function buildStripeLines(samples, tangents) {
+function buildStripeLines(samples: THREE.Vector3[], tangents: THREE.Vector3[]): THREE.BufferGeometry {
   const dashLen = 6;
   const gapLen = 4;
-  const verts = [];
-  const indices = [];
+  const verts: number[] = [];
+  const indices: number[] = [];
   let writing = false;
   let lastVA = -1, lastVB = -1;
 
@@ -227,10 +263,10 @@ function buildStripeLines(samples, tangents) {
   return geo;
 }
 
-function makeCheckerTexture() {
+function makeCheckerTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
-  const ctx = c.getContext('2d');
+  const ctx = c.getContext('2d')!;
   const cells = 8;
   const s = 64 / cells;
   for (let y = 0; y < cells; y++) {
@@ -245,8 +281,8 @@ function makeCheckerTexture() {
   return tex;
 }
 
-function buildWalls(scene, left, right, _samples, _assets) {
-  const walls = [];
+function buildWalls(scene: THREE.Scene, left: THREE.Vector3[], right: THREE.Vector3[]): Wall[] {
+  const walls: Wall[] = [];
   const wallGroup = new THREE.Group();
   scene.add(wallGroup);
 
@@ -258,7 +294,7 @@ function buildWalls(scene, left, right, _samples, _assets) {
   return walls;
 }
 
-function addWallSegment(group, walls, a, b, color) {
+function addWallSegment(group: THREE.Group, walls: Wall[], a: THREE.Vector3, b: THREE.Vector3, color: number): void {
   const dx = b.x - a.x;
   const dz = b.z - a.z;
   const len = Math.sqrt(dx * dx + dz * dz);
@@ -283,7 +319,7 @@ function addWallSegment(group, walls, a, b, color) {
   });
 }
 
-function scatterDecorations(scene, samples, tangents, assets) {
+function scatterDecorations(scene: THREE.Scene, samples: THREE.Vector3[], tangents: THREE.Vector3[], assets: Assets): void {
   const treeBig = assets.props.tree;
   const treeSmall = assets.props.treeSmall;
   const grandStand = assets.props.grandStand;
@@ -335,7 +371,7 @@ function scatterDecorations(scene, samples, tangents, assets) {
   }
 }
 
-function nearest(pos, samples) {
+function nearest(pos: { x: number; z: number }, samples: THREE.Vector3[]): { index: number; distSq: number } {
   let bestI = 0, bestD = Infinity;
   for (let i = 0; i < samples.length; i++) {
     const dx = samples[i].x - pos.x;
@@ -346,7 +382,7 @@ function nearest(pos, samples) {
   return { index: bestI, distSq: bestD };
 }
 
-function mulberry32(a) {
+function mulberry32(a: number): () => number {
   return function () {
     a |= 0; a = a + 0x6D2B79F5 | 0;
     let t = a;
@@ -356,8 +392,8 @@ function mulberry32(a) {
   };
 }
 
-function computeItemBoxSpawns(samples, tangents) {
-  const spawns = [];
+function computeItemBoxSpawns(samples: THREE.Vector3[], tangents: THREE.Vector3[]): ItemBoxSpawn[] {
+  const spawns: ItemBoxSpawn[] = [];
   const total = samples.length - 1;
   const interval = 30;
   for (let i = interval; i < total; i += interval) {
